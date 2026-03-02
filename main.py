@@ -1,16 +1,97 @@
-# 这是一个示例 Python 脚本。
+"""YAI 拟人化 AI 对话平台 — FastAPI 应用入口。"""
 
-# 按 ⌃R 执行或将其替换为您的代码。
-# 按 双击 ⇧ 在所有地方搜索类、文件、工具窗口、操作和设置。
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from src.config.settings import get_settings
+from src.utils.database import db_engine
+from src.utils.logger import setup_logging
+from src.utils.redis_client import redis_manager
 
 
-def print_hi(name):
-    # 在下面的代码行中使用断点来调试脚本。
-    print(f'Hi, {name}')  # 按 ⌘F8 切换断点。
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """应用生命周期管理：启动时初始化资源，关闭时释放资源。"""
+    settings = get_settings()
+
+    # 启动时初始化
+    setup_logging(settings.environment, log_level="DEBUG" if settings.debug else "INFO")
+
+    await db_engine.initialize(
+        database_url=settings.database_url,
+        pool_min=settings.db_pool_min_size,
+        pool_max=settings.db_pool_max_size,
+        statement_timeout=settings.db_statement_timeout,
+    )
+
+    await redis_manager.initialize(
+        redis_url=settings.redis_url,
+        max_connections=settings.redis_max_connections,
+    )
+
+    # 注册限流与请求日志中间件（需在 Redis 初始化后）
+    from src.utils.rate_limiter import SlidingWindowRateLimiter
+    from src.api.middleware import RateLimitMiddleware, RequestLogMiddleware
+
+    rate_limiter = SlidingWindowRateLimiter(redis_manager.client)
+    _app.add_middleware(RequestLogMiddleware)
+    _app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
+
+    yield
+
+    # 关闭时清理
+    await redis_manager.shutdown()
+    await db_engine.shutdown()
 
 
-# 按装订区域中的绿色按钮以运行脚本。
-if __name__ == '__main__':
-    print_hi('PyCharm')
+# 创建 FastAPI 应用实例
+app = FastAPI(
+    title="YAI API",
+    description="拟人化 AI 对话平台后端 API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
-# 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助
+# 配置 CORS
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# 健康检查端点
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """健康检查端点。"""
+    return {"status": "ok"}
+
+
+@app.get("/")
+async def root() -> dict[str, str]:
+    """根路径欢迎消息。"""
+    return {"message": "Welcome to YAI API", "version": "1.0.0"}
+
+
+# 挂载路由
+from src.api.admin_routes import router as admin_router
+from src.api.auth_routes import router as auth_router
+from src.api.character_routes import router as character_router
+from src.api.chat_routes import router as chat_router
+from src.api.credit_routes import router as credit_router
+from src.api.scene_routes import router as scene_router
+
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(character_router, prefix="/api/v1/characters", tags=["Characters"])
+app.include_router(scene_router, prefix="/api/v1/scenes", tags=["Scenes"])
+app.include_router(credit_router, prefix="/api/v1/credits", tags=["Credits"])
+app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])

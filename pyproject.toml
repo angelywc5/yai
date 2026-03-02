@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "unit: 单元测试",
+    "integration: 集成测试（需要数据库和 Redis）",
+]
