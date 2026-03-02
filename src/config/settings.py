@@ -56,10 +56,13 @@ class SmtpSettings(BaseSettings):
     """邮件服务配置"""
 
     smtp_provider: str = "resend"
-    smtp_api_key: str = ""
     smtp_host: str = ""
     smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
     smtp_from_email: str = "noreply@yai.app"
+    resend_api_key: str = ""
     verification_url_base: str = "https://yai.app/verify"
     verification_token_expire_hours: int = 24
 

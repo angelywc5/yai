@@ -23,7 +23,7 @@ class EmailService:
 
     async def send_verification_email(self, email: str, token: str) -> None:
         """发送邮箱验证邮件。"""
-        verification_url = f"{self.settings.frontend_url}/verify-email?token={token}"
+        verification_url = f"{self.settings.verification_url_base}?token={token}"
         subject = f"【{self.settings.app_name}】邮箱验证"
         html_body = f"""
         <html>
