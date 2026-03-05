@@ -62,7 +62,7 @@ async def get_chat_service(session: AsyncSession) -> ChatService:
     )
 
     prompt_builder = CharacterPromptBuilder()
-    scene_prompt_builder = ScenePromptBuilder()
+    scene_prompt_builder = ScenePromptBuilder(prompt_builder)
 
     context_builder = MemoryContextBuilder(
         prompt_builder=prompt_builder,
