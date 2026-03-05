@@ -2,6 +2,7 @@
 
 from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.core.models import Character, User
 from src.utils.id_generator import new_id
@@ -38,7 +39,7 @@ class CharacterRepository:
         )
         self._session.add(character)
         await self._session.flush()
-        await self._session.refresh(character)
+        await self._session.refresh(character, attribute_names=["creator"])
         return character
 
     async def get_by_id(self, character_id: str) -> Character | None:
@@ -48,9 +49,13 @@ class CharacterRepository:
         return result.scalar_one_or_none()
 
     async def get_by_id_active(self, character_id: str) -> Character | None:
-        """根据 ID 获取角色（过滤软删除）。"""
-        stmt = select(Character).where(
-            and_(Character.id == character_id, Character.is_deleted.is_(False))
+        """根据 ID 获取角色（过滤软删除），eager load creator。"""
+        stmt = (
+            select(Character)
+            .options(selectinload(Character.creator))
+            .where(
+                and_(Character.id == character_id, Character.is_deleted.is_(False))
+            )
         )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
@@ -58,9 +63,10 @@ class CharacterRepository:
     async def get_by_creator(
         self, creator_id: str, offset: int, limit: int
     ) -> list[Character]:
-        """获取创建者的所有角色（含软删除）。"""
+        """获取创建者的所有角色（含软删除），eager load creator。"""
         stmt = (
             select(Character)
+            .options(selectinload(Character.creator))
             .where(Character.creator_id == creator_id)
             .order_by(desc(Character.created_at))
             .offset(offset)
@@ -95,6 +101,7 @@ class CharacterRepository:
         )
         stmt = (
             select(Character)
+            .options(selectinload(Character.creator))
             .where(and_(Character.is_public.is_(True), Character.is_deleted.is_(False)))
             .order_by(order_clause, desc(Character.created_at))
             .offset(offset)
@@ -130,6 +137,7 @@ class CharacterRepository:
 
         stmt = (
             select(Character)
+            .options(selectinload(Character.creator))
             .where(and_(*conditions))
             .order_by(desc(Character.chat_count), desc(Character.created_at))
             .offset(offset)
@@ -166,7 +174,7 @@ class CharacterRepository:
                 setattr(character, key, value)
 
         await self._session.flush()
-        await self._session.refresh(character)
+        await self._session.refresh(character, attribute_names=["creator"])
         return character
 
     async def soft_delete(self, character_id: str) -> None:

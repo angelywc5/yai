@@ -7,7 +7,7 @@ from enum import Enum
 
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 # 泛型类型变量
 T = TypeVar("T")
@@ -148,11 +148,23 @@ class CharacterResponse(BaseModel):
     chat_count: int
     like_count: int
     creator_id: str
-    creator_username: str
-    creator_display_name: str
+    creator_username: str = ""
+    creator_display_name: str = ""
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_creator_fields(cls, data: any) -> any:
+        """从 ORM Character.creator 关系提取 username/display_name。"""
+        if hasattr(data, "creator") and data.creator is not None:
+            creator = data.creator
+            if not getattr(data, "creator_username", None):
+                data.creator_username = creator.username
+            if not getattr(data, "creator_display_name", None):
+                data.creator_display_name = creator.display_name
+        return data
 
 
 class CharacterPublicResponse(BaseModel):
@@ -169,11 +181,23 @@ class CharacterPublicResponse(BaseModel):
     chat_count: int
     like_count: int
     creator_id: str
-    creator_username: str
-    creator_display_name: str
+    creator_username: str = ""
+    creator_display_name: str = ""
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_creator_fields(cls, data: any) -> any:
+        """从 ORM Character.creator 关系提取 username/display_name。"""
+        if hasattr(data, "creator") and data.creator is not None:
+            creator = data.creator
+            if not getattr(data, "creator_username", None):
+                data.creator_username = creator.username
+            if not getattr(data, "creator_display_name", None):
+                data.creator_display_name = creator.display_name
+        return data
 
 
 # ==================== 场景相关 ====================

@@ -77,14 +77,15 @@ class CharacterService:
             avatar_url=character.avatar_url,
             avatar_source=character.avatar_source,
             tagline=character.tagline,
-            personality=character.definition.get("personality", []),
+            personality_summary=character.definition.get("personality", []),
             tags=character.tags,
             is_public=character.is_public,
             chat_count=character.chat_count,
             like_count=character.like_count,
             creator_id=character.creator_id,
+            creator_username=character.creator.username if character.creator else "",
+            creator_display_name=character.creator.display_name if character.creator else "",
             created_at=character.created_at,
-            updated_at=character.updated_at,
         )
 
     async def list_my_characters(
@@ -123,14 +124,15 @@ class CharacterService:
                 avatar_url=c.avatar_url,
                 avatar_source=c.avatar_source,
                 tagline=c.tagline,
-                personality=c.definition.get("personality", []),
+                personality_summary=c.definition.get("personality", []),
                 tags=c.tags,
                 is_public=c.is_public,
                 chat_count=c.chat_count,
                 like_count=c.like_count,
                 creator_id=c.creator_id,
+                creator_username=c.creator.username if c.creator else "",
+                creator_display_name=c.creator.display_name if c.creator else "",
                 created_at=c.created_at,
-                updated_at=c.updated_at,
             )
             for c in characters
         ]
@@ -158,14 +160,15 @@ class CharacterService:
                 avatar_url=c.avatar_url,
                 avatar_source=c.avatar_source,
                 tagline=c.tagline,
-                personality=c.definition.get("personality", []),
+                personality_summary=c.definition.get("personality", []),
                 tags=c.tags,
                 is_public=c.is_public,
                 chat_count=c.chat_count,
                 like_count=c.like_count,
                 creator_id=c.creator_id,
+                creator_username=c.creator.username if c.creator else "",
+                creator_display_name=c.creator.display_name if c.creator else "",
                 created_at=c.created_at,
-                updated_at=c.updated_at,
             )
             for c in characters
         ]
