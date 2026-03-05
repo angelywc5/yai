@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse
 
 from src.config.settings import get_settings
 from src.utils.rate_limiter import SlidingWindowRateLimiter
+from src.utils.redis_client import RedisClientManager
 from src.utils.security import JwtTokenManager
 
 logger = logging.getLogger(__name__)
@@ -26,9 +27,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     - 其他接口：按 user_id/IP 限流
     """
 
-    def __init__(self, app, rate_limiter: SlidingWindowRateLimiter) -> None:
+    def __init__(self, app, redis_manager: RedisClientManager) -> None:
         super().__init__(app)
-        self._limiter = rate_limiter
+        self._redis_manager = redis_manager
+        self._limiter: SlidingWindowRateLimiter | None = None
         settings = get_settings()
         self._route_limits: dict[str, tuple[int, int]] = {
             "/api/v1/chat/": (
@@ -44,6 +46,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             settings.rate_limit_default_max,
             settings.rate_limit_default_window,
         )
+
+    def _get_limiter(self) -> SlidingWindowRateLimiter:
+        """延迟创建限流器（首次请求时 Redis 已初始化完毕）。"""
+        if self._limiter is None:
+            self._limiter = SlidingWindowRateLimiter(self._redis_manager.client)
+        return self._limiter
 
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
@@ -66,12 +74,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # 提取限流 key
         key = self._extract_key(request, path)
 
-        is_limited, remaining = await self._limiter.is_rate_limited(
+        limiter = self._get_limiter()
+
+        is_limited, remaining = await limiter.is_rate_limited(
             key, max_req, window
         )
 
         if is_limited:
-            retry_after = await self._limiter.get_reset_time(key, window)
+            retry_after = await limiter.get_reset_time(key, window)
             return JSONResponse(
                 status_code=429,
                 content={
