@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -54,7 +55,8 @@ class AsyncDatabaseEngine:
             await self._engine.dispose()
             logger.info("Database engine disposed")
 
-    async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
+    @asynccontextmanager
+    async def get_session(self) -> AsyncIterator[AsyncSession]:
         """生成异步数据库会话（用于 FastAPI Depends）。"""
         if self._session_factory is None:
             raise RuntimeError("Database engine not initialized")
