@@ -44,16 +44,20 @@ def map_exception_to_http(exc: YaiBaseError) -> HTTPException:
 async def create_character(
     request: CharacterCreateRequest,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
     service: CharacterService = Depends(get_character_service),
 ) -> CharacterResponse:
     """创建角色。"""
     try:
-        return await service.create_character(
+        result = await service.create_character(
             creator_id=current_user.id,
             can_create=current_user.can_create_character,
             request=request,
         )
+        await session.commit()
+        return result
     except YaiBaseError as e:
+        await session.rollback()
         raise map_exception_to_http(e) from e
 
 
@@ -115,17 +119,21 @@ async def update_character(
     character_id: str,
     request: CharacterUpdateRequest,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
     service: CharacterService = Depends(get_character_service),
 ) -> CharacterResponse:
     """更新角色。"""
     try:
-        return await service.update_character(
+        result = await service.update_character(
             character_id=character_id,
             user_id=current_user.id,
             is_admin=current_user.is_admin,
             request=request,
         )
+        await session.commit()
+        return result
     except YaiBaseError as e:
+        await session.rollback()
         raise map_exception_to_http(e) from e
 
 
@@ -133,6 +141,7 @@ async def update_character(
 async def delete_character(
     character_id: str,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
     service: CharacterService = Depends(get_character_service),
 ) -> None:
     """删除角色。"""
@@ -142,5 +151,7 @@ async def delete_character(
             user_id=current_user.id,
             is_admin=current_user.is_admin,
         )
+        await session.commit()
     except YaiBaseError as e:
+        await session.rollback()
         raise map_exception_to_http(e) from e

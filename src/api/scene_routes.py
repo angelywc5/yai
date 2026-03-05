@@ -52,16 +52,20 @@ def map_exception_to_http(exc: YaiBaseError) -> HTTPException:
 async def create_scene(
     request: SceneCreateRequest,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
     service: SceneService = Depends(get_scene_service),
 ) -> SceneResponse:
     """创建场景。"""
     try:
-        return await service.create_scene(
+        result = await service.create_scene(
             creator_id=current_user.id,
             can_create=current_user.can_create_scene,
             request=request,
         )
+        await session.commit()
+        return result
     except YaiBaseError as e:
+        await session.rollback()
         raise map_exception_to_http(e) from e
 
 
@@ -121,17 +125,21 @@ async def update_scene(
     scene_id: str,
     request: SceneUpdateRequest,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
     service: SceneService = Depends(get_scene_service),
 ) -> SceneResponse:
     """更新场景。"""
     try:
-        return await service.update_scene(
+        result = await service.update_scene(
             scene_id=scene_id,
             user_id=current_user.id,
             is_admin=current_user.is_admin,
             request=request,
         )
+        await session.commit()
+        return result
     except YaiBaseError as e:
+        await session.rollback()
         raise map_exception_to_http(e) from e
 
 
@@ -139,6 +147,7 @@ async def update_scene(
 async def delete_scene(
     scene_id: str,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
     service: SceneService = Depends(get_scene_service),
 ) -> None:
     """删除场景。"""
@@ -148,7 +157,9 @@ async def delete_scene(
             user_id=current_user.id,
             is_admin=current_user.is_admin,
         )
+        await session.commit()
     except YaiBaseError as e:
+        await session.rollback()
         raise map_exception_to_http(e) from e
 
 
@@ -157,6 +168,7 @@ async def add_character_to_scene(
     scene_id: str,
     request: SceneCharacterRequest,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
     service: SceneService = Depends(get_scene_service),
 ) -> dict[str, str]:
     """向场景添加角色。"""
@@ -164,8 +176,10 @@ async def add_character_to_scene(
         await service.add_character_to_scene(
             scene_id=scene_id, user_id=current_user.id, request=request
         )
+        await session.commit()
         return {"message": "角色已添加到场景"}
     except YaiBaseError as e:
+        await session.rollback()
         raise map_exception_to_http(e) from e
 
 
@@ -174,6 +188,7 @@ async def remove_character_from_scene(
     scene_id: str,
     character_id: str,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
     service: SceneService = Depends(get_scene_service),
 ) -> None:
     """从场景移除角色。"""
@@ -181,5 +196,7 @@ async def remove_character_from_scene(
         await service.remove_character_from_scene(
             scene_id=scene_id, user_id=current_user.id, character_id=character_id
         )
+        await session.commit()
     except YaiBaseError as e:
+        await session.rollback()
         raise map_exception_to_http(e) from e
