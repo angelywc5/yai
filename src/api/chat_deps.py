@@ -84,10 +84,13 @@ async def get_chat_service(session: AsyncSession) -> ChatService:
 
     character_service = CharacterService(
         character_repo=CharacterRepository(session),
+        prompt_builder=prompt_builder,
     )
 
     scene_service = SceneService(
         scene_repo=SceneRepository(session),
+        character_repo=CharacterRepository(session),
+        scene_prompt_builder=scene_prompt_builder,
     )
 
     credit_service = CreditService(
