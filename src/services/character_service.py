@@ -2,20 +2,14 @@
 
 from __future__ import annotations
 
-from pydantic import ValidationError
-
 from src.core.exceptions import (
     CharacterCreationForbiddenError,
-    CharacterDefinitionError,
     CharacterNotFoundError,
     CharacterPermissionError,
-    ForbiddenError,
 )
-from src.core.models import Character
 from src.core.prompt_builder import CharacterPromptBuilder
 from src.core.schemas import (
     CharacterCreateRequest,
-    CharacterDefinition,
     CharacterPublicResponse,
     CharacterResponse,
     CharacterUpdateRequest,
@@ -42,16 +36,14 @@ class CharacterService:
         if not can_create:
             raise CharacterCreationForbiddenError()
 
-        # 校验 definition 格式
-        try:
-            CharacterDefinition(**request.definition)
-        except ValidationError as e:
-            raise CharacterDefinitionError(str(e)) from e
+        # request.definition 已由 Pydantic 自动校验为 CharacterDefinition
+        # 转为 dict 存入数据库
+        definition_dict = request.definition.model_dump()
 
         # 创建角色
         character = await self._repo.create(
             name=request.name,
-            definition=request.definition,
+            definition=definition_dict,
             creator_id=creator_id,
             avatar_url=request.avatar_url,
             avatar_source=request.avatar_source or "default",
@@ -202,13 +194,6 @@ class CharacterService:
         if character.creator_id != user_id and not is_admin:
             raise CharacterPermissionError()
 
-        # 校验 definition 格式（如果有更新）
-        if request.definition:
-            try:
-                CharacterDefinition(**request.definition)
-            except ValidationError as e:
-                raise CharacterDefinitionError(str(e)) from e
-
         # 构建更新参数
         update_data = {}
         if request.name is not None:
@@ -219,7 +204,7 @@ class CharacterService:
         if request.tagline is not None:
             update_data["tagline"] = request.tagline
         if request.definition is not None:
-            update_data["definition"] = request.definition
+            update_data["definition"] = request.definition.model_dump()
         if request.tags is not None:
             update_data["tags"] = request.tags
         if request.is_public is not None:
