@@ -49,7 +49,7 @@ class GeminiSettings(BaseSettings):
     gemini_pro_model: str = "gemini-2.5-pro"
     gemini_elite_model: str = "gemini-3.1-pro"
     gemini_request_timeout: int = 30
-    gemini_embedding_model: str = "text-embedding-004"
+    gemini_embedding_model: str = "gemini-embedding-001"
 
 
 class SmtpSettings(BaseSettings):

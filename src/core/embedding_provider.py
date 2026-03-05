@@ -6,8 +6,11 @@ import logging
 from abc import ABC, abstractmethod
 
 from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
+
+_EMBEDDING_DIMENSION = 768
 
 
 class EmbeddingProvider(ABC):
@@ -49,10 +52,13 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
 
         Args:
             api_key: Gemini API 密钥
-            model_name: 嵌入模型名（如 text-embedding-004）
+            model_name: 嵌入模型名（如 gemini-embedding-001）
         """
         self._client = genai.Client(api_key=api_key)
         self._model_name = model_name
+        self._config = types.EmbedContentConfig(
+            output_dimensionality=_EMBEDDING_DIMENSION,
+        )
 
     async def embed(self, text: str) -> list[float]:
         """生成单条文本的向量嵌入。"""
@@ -60,6 +66,7 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
             result = await self._client.aio.models.embed_content(
                 model=self._model_name,
                 contents=text,
+                config=self._config,
             )
             return list(result.embeddings[0].values)
         except Exception as e:
@@ -72,6 +79,7 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
             result = await self._client.aio.models.embed_content(
                 model=self._model_name,
                 contents=texts,
+                config=self._config,
             )
             return [list(emb.values) for emb in result.embeddings]
         except Exception as e:
