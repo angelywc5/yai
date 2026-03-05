@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { characters, scenes, credits } from "@/lib/api";
@@ -14,7 +14,7 @@ import { Coins, Plus } from "lucide-react";
 
 type Tab = "characters" | "scenes" | "credits";
 
-export default function ProfilePage() {
+function ProfileContent() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") || "characters") as Tab;
   const { user } = useUser();
@@ -144,5 +144,13 @@ export default function ProfilePage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<ListSkeleton count={4} />}>
+      <ProfileContent />
+    </Suspense>
   );
 }

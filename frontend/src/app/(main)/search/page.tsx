@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { characters, scenes } from "@/lib/api";
 import type { CharacterPublicResponse, SceneResponse } from "@/lib/types";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 type TabType = "all" | "characters" | "scenes";
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const q = searchParams.get("q") || "";
   const [tab, setTab] = useState<TabType>("all");
@@ -89,5 +89,13 @@ export default function SearchPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<ListSkeleton count={8} />}>
+      <SearchContent />
+    </Suspense>
   );
 }

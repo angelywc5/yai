@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { characters, scenes } from "@/lib/api";
 import type { CharacterPublicResponse, SceneResponse } from "@/lib/types";
@@ -17,7 +17,7 @@ const SCENE_TAGS = ["全部", "悬疑", "冒险", "恋爱", "恐怖", "科幻", 
 type TabType = "characters" | "scenes";
 type SortType = "popular" | "newest";
 
-export default function ExplorePage() {
+function ExploreContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") === "scenes" ? "scenes" : "characters";
   const initialTag = searchParams.get("tag") || "";
@@ -174,5 +174,13 @@ export default function ExplorePage() {
         <p className="text-center text-sm text-slate-400">已加载全部内容</p>
       )}
     </div>
+  );
+}
+
+export default function ExplorePage() {
+  return (
+    <Suspense fallback={<ListSkeleton count={8} />}>
+      <ExploreContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { characters, streamChat } from "@/lib/api";
@@ -9,7 +9,7 @@ import type { MessageResponse, ModelTier } from "@/lib/types";
 import ChatBubble from "@/components/ChatBubble";
 import { getAvatarUrl, TIER_LABELS, DIRECTIVE_PRESETS, parseSSELine, cn } from "@/lib/utils";
 
-export default function NewChatPage() {
+function NewChatContent() {
   const searchParams = useSearchParams();
   const characterId = searchParams.get("character_id") || "";
   const sceneId = searchParams.get("scene_id") || undefined;
@@ -165,5 +165,17 @@ export default function NewChatPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NewChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+      </div>
+    }>
+      <NewChatContent />
+    </Suspense>
   );
 }
