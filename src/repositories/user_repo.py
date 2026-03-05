@@ -40,9 +40,9 @@ class UserRepository:
         logger.info(f"用户创建成功: {user.id} ({email})")
         return user
 
-    async def get_by_id(self, session: AsyncSession, user_id: str) -> User | None:
+    async def get_by_id(self, user_id: str) -> User | None:
         """通过 ID 查询用户。"""
-        result = await session.execute(select(User).where(User.id == user_id))
+        result = await self.session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> User | None:

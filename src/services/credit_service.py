@@ -189,7 +189,7 @@ class CreditService:
         Raises:
             ResourceNotFoundError: 用户不存在
         """
-        user = await self.user_repo.get_by_id(session, user_id)
+        user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise ResourceNotFoundError("User", user_id)
         return user.credits
@@ -217,7 +217,7 @@ class CreditService:
             CreditTransactionError: 调整后余额为负
         """
         # 检查用户是否存在
-        user = await self.user_repo.get_by_id(session, user_id)
+        user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise ResourceNotFoundError("User", user_id)
 

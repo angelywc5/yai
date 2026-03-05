@@ -29,6 +29,7 @@ from src.core.models import User
 from src.core.schemas import (
     LoginRequest,
     RegisterRequest,
+    ResendVerificationRequest,
     UserResponse,
 )
 from src.services.auth_service import AuthService
