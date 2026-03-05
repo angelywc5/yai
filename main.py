@@ -34,14 +34,6 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         max_connections=settings.redis_max_connections,
     )
 
-    # 注册限流与请求日志中间件（需在 Redis 初始化后）
-    from src.utils.rate_limiter import SlidingWindowRateLimiter
-    from src.api.middleware import RateLimitMiddleware, RequestLogMiddleware
-
-    rate_limiter = SlidingWindowRateLimiter(redis_manager.client)
-    _app.add_middleware(RequestLogMiddleware)
-    _app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
-
     yield
 
     # 关闭时清理
@@ -57,8 +49,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 配置 CORS
+# 注册中间件（模块级别，应用启动前完成）
+from src.api.middleware import RateLimitMiddleware, RequestLogMiddleware
+
 settings = get_settings()
+
+app.add_middleware(RequestLogMiddleware)
+app.add_middleware(RateLimitMiddleware, redis_manager=redis_manager)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
