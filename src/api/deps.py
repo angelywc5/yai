@@ -42,7 +42,7 @@ def get_jwt_manager() -> JwtTokenManager:
     """获取 JWT 管理器。"""
     settings = get_settings()
     return JwtTokenManager(
-        secret_key=settings.secret_key, algorithm=settings.jwt_algorithm
+        secret_key=settings.jwt_secret_key, algorithm=settings.jwt_algorithm
     )
 
 
