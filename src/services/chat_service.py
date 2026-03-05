@@ -83,7 +83,7 @@ class ChatService:
         """
         # 1. 加载角色
         character = await self._character_service.get_character(
-            session, request.character_id, user_id
+            request.character_id, user_id
         )
         char_definition = character.definition or {}
         char_name = character.name
@@ -92,7 +92,7 @@ class ChatService:
         scene_kwargs: dict = {}
         if request.scene_id:
             scene = await self._scene_service.get_scene(
-                session, request.scene_id, user_id
+                request.scene_id, user_id
             )
             scene_kwargs = {
                 "scene_definition": scene.scene_definition,
