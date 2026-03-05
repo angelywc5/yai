@@ -246,7 +246,6 @@ async def get_me(
         email=user.email,
         username=user.username,
         display_name=user.display_name,
-        avatar_url=user.avatar_url,
         credits=user.credits,
         is_admin=user.is_admin,
         email_verified=user.email_verified,
