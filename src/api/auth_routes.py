@@ -15,11 +15,13 @@ from src.api.deps import (
 from src.config.settings import get_settings
 from src.core.exceptions import (
     EmailAlreadyExistsError,
+    EmailAlreadyVerifiedError,
     EmailNotVerifiedError,
     InvalidCredentialsError,
     TokenExpiredError,
     TokenInvalidError,
     UnauthorizedError,
+    UserNotFoundError,
     UsernameAlreadyExistsError,
     YaiBaseError,
 )
@@ -48,6 +50,8 @@ def map_exception_to_http(error: YaiBaseError) -> HTTPException:
         UsernameAlreadyExistsError: 409,
         InvalidCredentialsError: 401,
         EmailNotVerifiedError: 403,
+        EmailAlreadyVerifiedError: 409,
+        UserNotFoundError: 404,
         TokenExpiredError: 400,
         TokenInvalidError: 400,
         UnauthorizedError: 401,
@@ -113,10 +117,10 @@ async def verify_email(
         # 生成登录 Token（跳过密码验证）
         settings = get_settings()
         access_token = auth_service.jwt_manager.create_access_token(
-            user.id, settings.access_token_expire_minutes
+            user.id, settings.jwt_access_token_expire_minutes
         )
         refresh_token = auth_service.jwt_manager.create_refresh_token(
-            user.id, settings.refresh_token_expire_minutes
+            user.id, settings.jwt_refresh_token_expire_minutes
         )
 
         CookieHelper.set_auth_cookies(
@@ -127,6 +131,28 @@ async def verify_email(
         )
 
         return {"message": "邮箱验证成功，已自动登录"}
+    except YaiBaseError as e:
+        await session.rollback()
+        raise map_exception_to_http(e) from e
+
+
+@router.post("/resend-verification")
+async def resend_verification(
+    request: ResendVerificationRequest,
+    session: AsyncSession = Depends(get_db_session),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict[str, str]:
+    """
+    重新发送验证邮件。
+
+    - 检查用户存在且未验证
+    - 删除旧 token，创建新 token
+    - 发送验证邮件
+    """
+    try:
+        await auth_service.resend_verification(request.email)
+        await session.commit()
+        return {"message": "验证邮件已重新发送，请查收"}
     except YaiBaseError as e:
         await session.rollback()
         raise map_exception_to_http(e) from e

@@ -46,6 +46,12 @@ class UserLoginRequest(BaseModel):
     password: str
 
 
+class ResendVerificationRequest(BaseModel):
+    """重新发送验证邮件请求。"""
+
+    email: EmailStr
+
+
 # 别名（向后兼容）
 LoginRequest = UserLoginRequest
 

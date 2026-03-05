@@ -37,6 +37,8 @@ export const auth = {
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request<import("./types").User>("/auth/me"),
   refresh: () => request("/auth/refresh", { method: "POST" }),
+  resendVerification: (email: string) =>
+    request("/auth/resend-verification", { method: "POST", body: JSON.stringify({ email }) }),
 };
 
 /* ========== Characters ========== */

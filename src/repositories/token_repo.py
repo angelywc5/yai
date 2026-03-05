@@ -47,6 +47,13 @@ class VerificationTokenRepository:
         await self.session.flush()
         logger.info(f"验证令牌已删除: {token}")
 
+    async def delete_by_email(self, email: str) -> None:
+        """删除指定邮箱的所有验证令牌。"""
+        stmt = delete(VerificationToken).where(VerificationToken.email == email)
+        await self.session.execute(stmt)
+        await self.session.flush()
+        logger.info(f"已删除邮箱关联令牌: {email}")
+
     async def delete_expired(self) -> int:
         """清理过期令牌。"""
         stmt = delete(VerificationToken).where(

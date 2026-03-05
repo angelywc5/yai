@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/api";
+import { auth, ApiError } from "@/lib/api";
 import { useUser } from "@/lib/hooks";
 import { Loader2 } from "lucide-react";
 
@@ -14,10 +14,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setShowResend(false);
+    setResendSuccess(false);
     setLoading(true);
     try {
       await auth.login({ email, password });
@@ -25,10 +30,30 @@ export default function LoginPage() {
       setUser(user);
       router.push("/");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "登录失败";
-      setError(msg);
+      if (err instanceof ApiError && (err.body?.detail as Record<string, unknown>)?.code === "AUTH_EMAIL_NOT_VERIFIED") {
+        setError("邮箱尚未验证，请查收验证邮件或重新发送");
+        setShowResend(true);
+      } else {
+        const msg = err instanceof Error ? err.message : "登录失败";
+        setError(msg);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    setResendSuccess(false);
+    try {
+      await auth.resendVerification(email);
+      setResendSuccess(true);
+      setError("");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "发送失败";
+      setError(msg);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -47,6 +72,23 @@ export default function LoginPage() {
             <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
               {error}
             </div>
+          )}
+
+          {resendSuccess && (
+            <div className="mb-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600 dark:bg-green-900/30 dark:text-green-400">
+              验证邮件已重新发送，请查收邮箱
+            </div>
+          )}
+
+          {showResend && !resendSuccess && (
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending}
+              className="mb-4 w-full rounded-lg border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50 dark:border-primary-700 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
+            >
+              {resending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "重新发送验证邮件"}
+            </button>
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">

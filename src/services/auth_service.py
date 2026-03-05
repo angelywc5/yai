@@ -9,11 +9,13 @@ from datetime import datetime, timezone
 from src.config.settings import Settings
 from src.core.exceptions import (
     EmailAlreadyExistsError,
+    EmailAlreadyVerifiedError,
     EmailNotVerifiedError,
     InvalidCredentialsError,
     TokenExpiredError,
     TokenInvalidError,
     UnauthorizedError,
+    UserNotFoundError,
     UsernameAlreadyExistsError,
 )
 from src.core.models import User
@@ -131,6 +133,42 @@ class AuthService:
         logger.info(f"邮箱验证成功: {user.id} ({user.email})")
         return user
 
+    async def resend_verification(self, email: str) -> None:
+        """
+        重新发送验证邮件。
+
+        1. 检查用户存在
+        2. 检查邮箱未验证
+        3. 删除旧的验证令牌
+        4. 创建新令牌
+        5. 异步发送验证邮件
+
+        Raises:
+            UserNotFoundError: 用户不存在
+            EmailAlreadyVerifiedError: 邮箱已验证
+        """
+        user = await self.user_repo.get_by_email(email)
+        if not user:
+            raise UserNotFoundError()
+
+        if user.email_verified:
+            raise EmailAlreadyVerifiedError()
+
+        # 删除旧令牌
+        await self.token_repo.delete_by_email(email)
+
+        # 创建新令牌
+        token = await self.token_repo.create(
+            email, self.settings.verification_token_expire_hours
+        )
+
+        # 异步发送验证邮件
+        asyncio.create_task(
+            self.email_service.send_verification_email(email, token.token)
+        )
+
+        logger.info(f"重新发送验证邮件: {email}")
+
     async def login(self, email: str, password: str) -> tuple[str, str]:
         """
         登录流程。
@@ -156,10 +194,10 @@ class AuthService:
 
         # 生成 Token
         access_token = self.jwt_manager.create_access_token(
-            user.id, self.settings.access_token_expire_minutes
+            user.id, self.settings.jwt_access_token_expire_minutes
         )
         refresh_token = self.jwt_manager.create_refresh_token(
-            user.id, self.settings.refresh_token_expire_minutes
+            user.id, self.settings.jwt_refresh_token_expire_minutes
         )
 
         logger.info(f"用户登录成功: {user.id} ({email})")
@@ -178,7 +216,7 @@ class AuthService:
 
         # 生成新的 access_token
         new_access_token = self.jwt_manager.create_access_token(
-            payload["sub"], self.settings.access_token_expire_minutes
+            payload["sub"], self.settings.jwt_access_token_expire_minutes
         )
 
         logger.info(f"Token 刷新成功: user_id={payload['sub']}")

@@ -45,6 +45,20 @@ class EmailNotVerifiedError(YaiBaseError):
         super().__init__("请先验证邮箱", "AUTH_EMAIL_NOT_VERIFIED")
 
 
+class EmailAlreadyVerifiedError(YaiBaseError):
+    """邮箱已验证。"""
+
+    def __init__(self):
+        super().__init__("该邮箱已完成验证，无需重复操作", "AUTH_EMAIL_ALREADY_VERIFIED")
+
+
+class UserNotFoundError(YaiBaseError):
+    """用户不存在。"""
+
+    def __init__(self):
+        super().__init__("该邮箱未注册", "AUTH_USER_NOT_FOUND")
+
+
 class TokenExpiredError(YaiBaseError):
     """验证令牌已过期。"""
 
