@@ -2,11 +2,14 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Settings, Send, Loader2 } from "lucide-react";
-import { chat, streamChat, characters } from "@/lib/api";
+import { ArrowLeft, Send, Loader2, ClipboardList, BookOpen, MessageSquarePlus } from "lucide-react";
+import { chat, streamChat } from "@/lib/api";
 import { useUser } from "@/lib/hooks";
-import type { MessageResponse, ChatDirective, ModelTier, CharacterPublicResponse } from "@/lib/types";
+import type { MessageResponse, ChatDirective, ModelTier } from "@/lib/types";
 import ChatBubble from "@/components/ChatBubble";
+import ModelSelector from "@/components/ModelSelector";
+import SessionDrawer from "@/components/SessionDrawer";
+import SummaryDrawer from "@/components/SummaryDrawer";
 import { cn, TIER_LABELS, DIRECTIVE_PRESETS, parseSSELine, getAvatarUrl } from "@/lib/utils";
 
 export default function ChatPage() {
@@ -27,9 +30,10 @@ export default function ChatPage() {
   const [directives, setDirectives] = useState<ChatDirective[]>([]);
   const [streamSpeech, setStreamSpeech] = useState("");
   const [streamAction, setStreamAction] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
+  const [showSessions, setShowSessions] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,12 +42,8 @@ export default function ChatPage() {
   // Load initial history
   useEffect(() => {
     if (!user) return;
-    // We need character_id from sessions. Since the URL is session-based,
-    // we fetch history which will give us the session context.
-    // For the initial load, we try to get info from messages
     const loadHistory = async () => {
       try {
-        // Try to find character_id from recent characters
         const recentChars = await chat.recentCharacters(20);
         const match = recentChars.find((rc) => rc.last_session_id === sessionId);
         if (match) {
@@ -87,7 +87,6 @@ export default function ChatPage() {
     setStreamSpeech("");
     setStreamAction("");
 
-    // Optimistic user message
     const tempUserMsg: MessageResponse = {
       id: `temp-${Date.now()}`,
       role: "user",
@@ -130,9 +129,6 @@ export default function ChatPage() {
           const parsed = parseSSELine(line);
           if (!parsed) continue;
 
-          if (parsed.event === "speech" || (!parsed.event && parsed.data)) {
-            // speech data
-          }
           if (parsed.data !== undefined) {
             try {
               const obj = JSON.parse(parsed.data);
@@ -140,7 +136,6 @@ export default function ChatPage() {
               if (obj.action !== undefined) { accAction = obj.action; setStreamAction(accAction); }
               if (obj.emotion !== undefined) accEmotion = obj.emotion;
               if (obj.type === "done" || obj.done) {
-                // Final message
                 const finalMsg: MessageResponse = {
                   id: obj.message_id || `ai-${Date.now()}`,
                   role: "assistant",
@@ -156,7 +151,6 @@ export default function ChatPage() {
                 setStreamAction("");
               }
             } catch {
-              // Simple text data
               accSpeech += parsed.data;
               setStreamSpeech(accSpeech);
             }
@@ -165,7 +159,6 @@ export default function ChatPage() {
       }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
-        // If streaming failed, add a fallback message
         const errorMsg: MessageResponse = {
           id: `err-${Date.now()}`,
           role: "assistant",
@@ -217,31 +210,21 @@ export default function ChatPage() {
           <p className="text-sm font-semibold">{characterName}</p>
           {sceneName && <p className="text-xs text-slate-400">{sceneName}</p>}
         </div>
-        <button onClick={() => setShowSettings(!showSettings)} className="btn-ghost p-1">
-          <Settings className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* Settings panel */}
-      {showSettings && (
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
-          <p className="mb-2 text-sm font-medium">模型选择</p>
-          <div className="flex gap-2">
-            {(["speed", "pro", "elite"] as ModelTier[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTier(t)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                  tier === t ? "bg-primary-600 text-white" : "bg-white text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-                )}
-              >
-                {TIER_LABELS[t].label} ({TIER_LABELS[t].cost})
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setShowSessions(true)} className="btn-ghost p-1.5" title="会话记录">
+            <ClipboardList className="h-4.5 w-4.5" />
+          </button>
+          <button onClick={() => setShowSummary(true)} className="btn-ghost p-1.5" title="故事梗概">
+            <BookOpen className="h-4.5 w-4.5" />
+          </button>
+          <button
+            onClick={() => router.push(`/chat/new?character_id=${characterId}`)}
+            className="btn-ghost flex items-center gap-1 px-2 py-1.5 text-xs font-medium"
+          >
+            <MessageSquarePlus className="h-4 w-4" /> 新对话
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Messages */}
       <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-4">
@@ -326,8 +309,9 @@ export default function ChatPage() {
             })}
           </div>
 
-          {/* Input box */}
+          {/* Input box with model selector */}
           <div className="flex items-end gap-2">
+            <ModelSelector value={tier} onChange={setTier} />
             <div className="relative flex-1">
               <textarea
                 value={input}
@@ -356,9 +340,9 @@ export default function ChatPage() {
           </div>
 
           {/* Footer info */}
-          <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
+          <div className="mt-1.5 flex items-center justify-between text-xs text-slate-400">
             <span className={TIER_LABELS[tier].color}>
-              模型: {TIER_LABELS[tier].label}
+              {TIER_LABELS[tier].cost}
             </span>
             {directives.length > 0 && (
               <span>指令: {directives.map((d) => d.mode).join(", ")}</span>
@@ -367,6 +351,23 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Drawers */}
+      {characterId && (
+        <SessionDrawer
+          characterId={characterId}
+          currentSessionId={sessionId}
+          open={showSessions}
+          onClose={() => setShowSessions(false)}
+          onSelectSession={(id) => router.push(`/chat/${id}`)}
+          onNewSession={() => router.push(`/chat/new?character_id=${characterId}`)}
+        />
+      )}
+      <SummaryDrawer
+        sessionId={sessionId}
+        open={showSummary}
+        onClose={() => setShowSummary(false)}
+      />
     </div>
   );
 }

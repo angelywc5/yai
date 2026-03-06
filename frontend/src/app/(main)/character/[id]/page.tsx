@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { characters, chat } from "@/lib/api";
-import type { CharacterResponse, SceneResponse } from "@/lib/types";
+import type { CharacterResponse, SessionResponse } from "@/lib/types";
 import { useUser } from "@/lib/hooks";
-import { getAvatarUrl, formatNumber } from "@/lib/utils";
-import { MessageCircle, Heart, Loader2 } from "lucide-react";
+import { getAvatarUrl, formatNumber, timeAgo, truncate } from "@/lib/utils";
+import { MessageCircle, Heart, Loader2, Plus, X } from "lucide-react";
 import SceneCard from "@/components/SceneCard";
 
 export default function CharacterDetailPage() {
@@ -17,6 +17,9 @@ export default function CharacterDetailPage() {
   const [character, setCharacter] = useState<CharacterResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [showSessionPicker, setShowSessionPicker] = useState(false);
+  const [sessions, setSessions] = useState<SessionResponse[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
 
   useEffect(() => {
     characters.get(id)
@@ -29,20 +32,21 @@ export default function CharacterDetailPage() {
     if (!user) { router.push("/auth/login"); return; }
     setStarting(true);
     try {
-      // Start chat by sending an initial empty-like request or navigate to a new session
-      // For simplicity, we'll create a session via streaming a greeting
-      const recentChars = await chat.recentCharacters(20);
-      const existing = recentChars.find((rc) => rc.character_id === id);
-      if (existing) {
-        router.push(`/chat/${existing.last_session_id}`);
-      } else {
-        // Navigate to a temp chat page that will create session on first message
+      setLoadingSessions(true);
+      const sessionList = await chat.sessions(id);
+      if (sessionList.length === 0) {
         router.push(`/chat/new?character_id=${id}`);
+      } else if (sessionList.length === 1) {
+        router.push(`/chat/${sessionList[0].session_id}`);
+      } else {
+        setSessions(sessionList);
+        setShowSessionPicker(true);
       }
     } catch {
       router.push(`/chat/new?character_id=${id}`);
     } finally {
       setStarting(false);
+      setLoadingSessions(false);
     }
   };
 
@@ -91,6 +95,55 @@ export default function CharacterDetailPage() {
           开始对话
         </button>
       </div>
+
+      {/* Session Picker Modal */}
+      {showSessionPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowSessionPicker(false)}>
+          <div
+            className="mx-4 w-full max-w-md rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold">选择对话</h3>
+              <button onClick={() => setShowSessionPicker(false)} className="rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {sessions.map((s, i) => (
+                <button
+                  key={s.session_id}
+                  onClick={() => { setShowSessionPicker(false); router.push(`/chat/${s.session_id}`); }}
+                  className="w-full rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-primary-300 hover:bg-primary-50/50 dark:border-slate-700 dark:hover:border-primary-700 dark:hover:bg-primary-900/10"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      {i === 0 ? "最近对话" : `对话 ${sessions.length - i}`}
+                    </span>
+                    <span className="text-xs text-slate-400">{timeAgo(s.last_message_at)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
+                    <span>{s.message_count} 条消息</span>
+                  </div>
+                  {s.last_message_preview && (
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      &ldquo;{truncate(s.last_message_preview, 50)}&rdquo;
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => { setShowSessionPicker(false); router.push(`/chat/new?character_id=${id}`); }}
+              className="btn-secondary mt-4 flex w-full items-center justify-center gap-2"
+            >
+              <Plus className="h-4 w-4" /> 开始新对话
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tags */}
       {character.tags.length > 0 && (

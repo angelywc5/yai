@@ -2,11 +2,14 @@
 
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Settings, Send, Loader2 } from "lucide-react";
-import { characters, streamChat } from "@/lib/api";
+import { ArrowLeft, Send, Loader2, ClipboardList, BookOpen, MessageSquarePlus } from "lucide-react";
+import { characters, chat, streamChat } from "@/lib/api";
 import { useUser } from "@/lib/hooks";
 import type { MessageResponse, ChatDirective, ModelTier } from "@/lib/types";
 import ChatBubble from "@/components/ChatBubble";
+import ModelSelector from "@/components/ModelSelector";
+import SessionDrawer from "@/components/SessionDrawer";
+import SummaryDrawer from "@/components/SummaryDrawer";
 import { getAvatarUrl, TIER_LABELS, DIRECTIVE_PRESETS, parseSSELine, cn } from "@/lib/utils";
 
 function NewChatContent() {
@@ -26,7 +29,8 @@ function NewChatContent() {
   const [streamSpeech, setStreamSpeech] = useState("");
   const [streamAction, setStreamAction] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSessions, setShowSessions] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,7 +104,6 @@ function NewChatContent() {
               setMessages((prev) => [...prev, finalMsg]);
               setStreamSpeech("");
               setStreamAction("");
-              // Redirect to session page if we got a session_id
               if (obj.session_id) {
                 router.replace(`/chat/${obj.session_id}`);
               }
@@ -139,31 +142,21 @@ function NewChatContent() {
           <p className="text-sm font-semibold">{charName}</p>
           <p className="text-xs text-slate-400">新对话</p>
         </div>
-        <button onClick={() => setShowSettings(!showSettings)} className="btn-ghost p-1">
-          <Settings className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* Settings panel */}
-      {showSettings && (
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
-          <p className="mb-2 text-sm font-medium">模型选择</p>
-          <div className="flex gap-2">
-            {(["speed", "pro", "elite"] as ModelTier[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTier(t)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                  tier === t ? "bg-primary-600 text-white" : "bg-white text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-                )}
-              >
-                {TIER_LABELS[t].label} ({TIER_LABELS[t].cost})
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setShowSessions(true)} className="btn-ghost p-1.5" title="会话记录">
+            <ClipboardList className="h-4.5 w-4.5" />
+          </button>
+          <button onClick={() => setShowSummary(true)} className="btn-ghost p-1.5" title="故事梗概" disabled={!sessionId}>
+            <BookOpen className="h-4.5 w-4.5" />
+          </button>
+          <button
+            onClick={() => router.push(`/chat/new?character_id=${characterId}`)}
+            className="btn-ghost flex items-center gap-1 px-2 py-1.5 text-xs font-medium"
+          >
+            <MessageSquarePlus className="h-4 w-4" /> 新对话
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -219,8 +212,9 @@ function NewChatContent() {
             })}
           </div>
 
-          {/* Input box */}
+          {/* Input box with model selector */}
           <div className="flex items-end gap-2">
+            <ModelSelector value={tier} onChange={setTier} />
             <div className="relative flex-1">
               <textarea
                 value={input}
@@ -243,9 +237,9 @@ function NewChatContent() {
           </div>
 
           {/* Footer info */}
-          <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
+          <div className="mt-1.5 flex items-center justify-between text-xs text-slate-400">
             <span className={TIER_LABELS[tier].color}>
-              模型: {TIER_LABELS[tier].label}
+              {TIER_LABELS[tier].cost}
             </span>
             {directives.length > 0 && (
               <span>指令: {directives.map((d) => d.mode).join(", ")}</span>
@@ -254,6 +248,23 @@ function NewChatContent() {
           </div>
         </div>
       </div>
+
+      {/* Drawers */}
+      <SessionDrawer
+        characterId={characterId}
+        currentSessionId={sessionId || undefined}
+        open={showSessions}
+        onClose={() => setShowSessions(false)}
+        onSelectSession={(id) => router.push(`/chat/${id}`)}
+        onNewSession={() => router.push(`/chat/new?character_id=${characterId}`)}
+      />
+      {sessionId && (
+        <SummaryDrawer
+          sessionId={sessionId}
+          open={showSummary}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </div>
   );
 }
